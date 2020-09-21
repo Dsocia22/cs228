@@ -15,19 +15,28 @@ var rawYMax = -5000;
 var canvasX;
 var canvasY;
 
+var previousNumHands = 0;
+var currentNumHands = 0;
+
+var oneFrameOfData = nj.zeros([5, 4, 6]);
+
 Leap.loop(controllerOptions, function(frame)
 {
     clear();
-    HandleFrame(frame)
 
-    //console.log(indexPose);
+    currentNumHands = frame.hands.length;
+    HandleFrame(frame)
+    RecordData()
+    previousNumHands = currentNumHands;
+    
 
 }
 );
 
 
 function HandleFrame(frame) {
-    if (frame.hands.length == 1) {
+    
+    if (frame.hands.length >= 1) {
         //    console.log(frame.hands)
         hand = frame.hands[0];
 
@@ -41,8 +50,9 @@ function HandleHand(hand) {
     for (var k = 3; k >= 0; k--) {
         for (var i = 0; i < fingers.length; i++) {
             var bone = fingers[i].bones[k];
-
-            HandleBone(bone, 4 - k)
+            var boneIndex = fingers[i].bones[k].type
+            var fingerIndex = fingers[i].type
+            HandleBone(bone, boneIndex, fingerIndex)
         }
     }
     
@@ -51,21 +61,34 @@ function HandleHand(hand) {
 function HandleFinger(finger) {
     //var fingerPose = finger.tipPosition;
     //DrawCircle(fingerPose)
-
+   console.log(finger);
    for (var j = finger.bones.length - 1; j >= 0; j--) {
        var bone = finger.bones[j]
-       var prox = finger.bones.length - 1 - j
-       console.log(prox)
-       HandleBone(bone, prox)
+       
+       var fingerIndex = finger.type
+       //console.log(finger)
+       HandleBone(bone, boneIndex, fingerIndex)
     }
 
-    //console.log(finger)
+    
 }
 
-function HandleBone(bone, prox) {
+function HandleBone(bone, boneIndex, fingerIndex) {
     var boneTipPose = bone.nextJoint;
     var boneBasePose = bone.prevJoint;
-    DrawLine(processCoords(boneTipPose), processCoords(boneBasePose), prox)
+    var transTip = processCoords(boneTipPose);
+    var transBase = processCoords(boneBasePose);
+
+    oneFrameOfData.set(fingerIndex, boneIndex, 0, transBase[0]);
+    oneFrameOfData.set(fingerIndex, boneIndex, 1, transBase[1]);
+    oneFrameOfData.set(fingerIndex, boneIndex, 2, transBase[2]);
+
+    oneFrameOfData.set(fingerIndex, boneIndex, 3, transTip[0]);
+    oneFrameOfData.set(fingerIndex, boneIndex, 4, transTip[1]);
+    oneFrameOfData.set(fingerIndex, boneIndex, 5, transTip[2]);
+
+    
+    DrawLine(transTip, transBase, boneIndex)
 }
 
 function processCoords(coords) {
@@ -99,9 +122,25 @@ function processCoords(coords) {
     return [canvasX, canvasY, z]
 }
 
-function DrawLine(tipPose, basePose, prox) {
+function DrawLine(tipPose, basePose, boneIndex) {
     
-    strokeWeight(prox)
-    stroke(tipPose[2] * 10)
-    line(basePose[0], basePose[1], tipPose[0], tipPose[1])
+    //var green = Math.abs(Math.round(255/tipPose[2]));
+    //console.log(green);
+    strokeWeight((4 - boneIndex) * 2);
+
+    if (currentNumHands == 1){
+        stroke(0, (4-boneIndex) * 50, 0);
+    }
+    else{
+        stroke((4-boneIndex) * 50, 0, 0);
+    }
+    
+    line(basePose[0], basePose[1], tipPose[0], tipPose[1]);
+}
+
+function RecordData() {
+    if (currentNumHands == 1 && previousNumHands == 2){
+        background(0)
+        console.log(oneFrameOfData.toString());
+    }
 }
