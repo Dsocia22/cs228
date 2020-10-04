@@ -58,20 +58,6 @@ function HandleHand(hand) {
     
 }
 
-function HandleFinger(finger) {
-    //var fingerPose = finger.tipPosition;
-    //DrawCircle(fingerPose)
-   console.log(finger);
-   for (var j = finger.bones.length - 1; j >= 0; j--) {
-       var bone = finger.bones[j]
-       
-       var fingerIndex = finger.type
-       //console.log(finger)
-       HandleBone(bone, boneIndex, fingerIndex)
-    }
-
-    
-}
 
 function HandleBone(bone, boneIndex, fingerIndex) {
     var boneTipPose = bone.nextJoint;
