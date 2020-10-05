@@ -67,6 +67,12 @@ function draw() {
                 var yEnd = anotherFrameOfData.get(fingerIndex, boneIndex, 4)
                 var zEnd = anotherFrameOfData.get(fingerIndex, boneIndex, 5)
 
+                xStart = window.innerWidth * xStart;
+                xEnd = window.innerWidth * xEnd;
+                yStart = window.innerHeight * (1 - yStart);
+                yEnd = window.innerHeight * (1 - yEnd);
+
+
                 line(xStart, yStart, xEnd, yEnd)
             }
         }
