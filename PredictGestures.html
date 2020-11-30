@@ -4,7 +4,8 @@
     <script src="http://js.leapmotion.com/leap-0.6.3.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/nicolaspanel/numjs@0.15.1/dist/numjs.min.js"></script>
     <script src="https://unpkg.com/ml5@0.4.3/dist/ml5.min.js"></script>
-    <script src="PredictGestures.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0"></script>
+
     <script src="train0Allison.js"></script>
     <script src="train1Davis.js"></script>
     <script src="train2Neff.js"></script>
@@ -49,18 +50,29 @@
     <script src="train8Wills.js"></script>
     <script src="train9Woolley.js"></script>
 
+    <script src="trainStop1.js"></script>
+    <script src="trainStop2.js"></script>
+
     <script src="prepareToDraw.js"></script>
 </head>
-    <body>
-        <main>
-            Hello World!
-            <form id="myform">
-                <input id="username" type="text" name="username" placeholder="name">
-                <button onclick="return SignIn();" type="submit">Sign in</button>
-            </form>
-        </main>
-        <ul id="users">
-            <li>user1</li>
-        </ul>
-    </body>
+<body>
+    <main>
+        <form id="myform">
+            <input id="username" type="text" name="username" placeholder="name">
+            <button onclick="return SignIn();" type="submit">Sign in</button>
+        </form>
+        <div id='d3' style="position:absolute; top:425px; left:10px; z-index:3">
+            <canvas id='userChart' width='400' height='290'>
+            </canvas>
+        </div>
+        <div id='hs'style="position:absolute; top:450px; left:435px;">
+            High Scores
+            <ol id="highScores" style="padding-left: 0;">
+            </ol>
+         </div>
+        <script src="PredictGestures.js"></script>
+    </main>
+    <ul id="users">
+    </ul>
+</body>
 </html>

@@ -14,9 +14,6 @@ var username;
 var digitToShow = 0;
 var timeSinceLastDigitChange = new Date();
 
-var num1 = 0;
-var addSub = 0;
-
 var previousNumHands = 0;
 var currentNumHands = 0;
 
@@ -32,59 +29,9 @@ var fingers;
 var canvasX;
 var canvasY;
 
-// Second hand functions
-var predictedDigit = 0
-var pause = false
+var framesOfData = nj.zeros([5, 4, 6]);
 
-var framesOfData1 = nj.zeros([5, 4, 6]);
-var framesOfData2 = nj.zeros([5, 4, 6]);
-
-var prevData = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-var currentData = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-
-var userAttemps = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-var correctAttemps = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-
-var highScoreList = {};
-
-var ctx = document.getElementById('userChart').getContext('2d');
-var chart = new Chart(ctx, {
-    // The type of chart we want to create
-    type: 'bar',
-
-    // The data for our dataset
-    data: {
-        labels: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'],
-        datasets: [{
-            //label: 'My First dataset',
-            backgroundColor: 'red',
-            data: prevData
-        },
-        {
-            //label: 'My First dataset',
-            backgroundColor: 'blue',
-            data: currentData
-        }]
-    },
-
-    // Configuration options go here
-    options: {
-        barValueSpacing: 20,
-        scales: {
-            yAxes: [{
-                ticks: {
-                    min: 0,
-                }
-            }]
-        },
-        legend: {
-            display: false
-        }
-    }
-});
-
-//var digitsBeingWorkedOn = [0];
-var digitsBeingWorkedOn = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+var digitsBeingWorkedOn = [0];
 var digitIndex = 0;
 
 var timeSinceChangeInSeconds = 0;
@@ -93,16 +40,14 @@ var timeToChange = 5;
 //var predictedClassLabels = nj.zeros(numSamples)
 
 // classifier
-const knnClassifier = ml5.KNNClassifier();
+const options = {
+    task: 'classification',
+    debug: true
+}
+const nn = ml5.neuralNetwork(options);
 
 Leap.loop(controllerOptions, function (frame) {
     clear();
-    chart.update();
-    //console.log(pause)
-    if (username != null) {
-        updateScores();
-    }
-    
     currentNumHands = frame.hands.length;
     DetermineState(frame)
     if (programState == 0) {
@@ -143,14 +88,14 @@ function HandIsUncentered() {
 
 
     //print(left,  right,  up,  down, push, pull)
-    //console.log(left, right, up, down, push, pull)
+    console.log(left, right, up, down, push, pull)
     return left || right || up || down || push || pull
     //return left && right && up && down && push && pull
 }
 
 function HandIsTooFarToTheLeft() {
     var currentMean = 0;
-    xValues = framesOfData1.slice([], [], [0, 6, 3])
+    xValues = framesOfData.slice([], [], [0, 6, 3])
 
     currentMean = xValues.mean();
 
@@ -164,7 +109,7 @@ function HandIsTooFarToTheLeft() {
 
 function HandIsTooFarToTheRight() {
     var currentMean = 0;
-    xValues = framesOfData1.slice([], [], [0, 6, 3])
+    xValues = framesOfData.slice([], [], [0, 6, 3])
 
     currentMean = xValues.mean();
 
@@ -178,7 +123,7 @@ function HandIsTooFarToTheRight() {
 
 function HandIsTooFarToTheTop() {
     var currentMean = 0;
-    yValues = framesOfData1.slice([], [], [1, 6, 3])
+    yValues = framesOfData.slice([], [], [1, 6, 3])
 
     currentMean = yValues.mean();
 
@@ -192,7 +137,7 @@ function HandIsTooFarToTheTop() {
 
 function HandIsTooFarToTheBottom() {
     var currentMean = 0;
-    yValues = framesOfData1.slice([], [], [1, 6, 3])
+    yValues = framesOfData.slice([], [], [1, 6, 3])
 
     currentMean = yValues.mean();
 
@@ -206,7 +151,7 @@ function HandIsTooFarToTheBottom() {
 
 function HandIsTooFarOut() {
     var currentMean = 0;
-    zValues = framesOfData1.slice([], [], [2, 6, 3])
+    zValues = framesOfData.slice([], [], [2, 6, 3])
 
     currentMean = zValues.mean();
 
@@ -220,7 +165,7 @@ function HandIsTooFarOut() {
 
 function HandIsTooFarIn() {
     var currentMean = 0;
-    zValues = framesOfData1.slice([], [], [2, 6, 3])
+    zValues = framesOfData.slice([], [], [2, 6, 3])
 
     currentMean = zValues.mean();
 
@@ -265,44 +210,30 @@ function HandelState1(frame) {
 }
 
 function HandelState2(frame) {
-    if (pause) {
-        drawPause()
-        drawPredictedDigit()
-    }
     HandleFrame(frame)
-    //console.log(digitToShow, getNumberOfAttemps(), getNumberOfAccuracys(), timeSinceChangeInSeconds)
-    if ((digitsBeingWorkedOn.length == 10) && (currentData[digitToShow] > 0.5)) {
-        DrawLowerRightPanelMath()
+    console.log(digitToShow, getNumberOfAttemps(), getNumberOfAccuracys(), timeSinceChangeInSeconds)
+    if ((getNumberOfAccuracys() > .1) && (getNumberOfAttemps() >= 3)) {
+        timeToChange = 5 * (1 - getNumberOfAccuracys())
     }
-    else if ((getNumberOfAccuracys() > .5) && (getNumberOfAttemps() >= 3) && (timeSinceChangeInSeconds < timeToChange)) {
+    if ((getNumberOfAccuracys() > .2) && (getNumberOfAttemps() >= 3) && (timeSinceChangeInSeconds < timeToChange)) {
         DrawLowerRightPanelDigit()
     }
-    else if ((getNumberOfAccuracys() > .25) && (getNumberOfAttemps() >= 2) && (timeSinceChangeInSeconds < timeToChange/2)) {
+    else if ((getNumberOfAccuracys() > .1) && (getNumberOfAttemps() >= 2) && (timeSinceChangeInSeconds < timeToChange/2)) {
         DrawLowerRightPanel()
     }
-    else if ((getNumberOfAccuracys() > .25) && (getNumberOfAttemps() >= 2) && (timeSinceChangeInSeconds > timeToChange/2)) {
+    else if ((getNumberOfAccuracys() > .1) && (getNumberOfAttemps() >= 2) && (timeSinceChangeInSeconds > timeToChange/2)) {
         DrawLowerRightPanelDigit()
     }
     else {
         DrawLowerRightPanel()
     }
     
-    
-    Test()
-    
     DetermineWhetherToSwitchDigits()
+    Test()
 }
 
 function DetermineWhetherToSwitchDigits() {
     if (TimeToSwitchDigits()) {
-        userAttemps[digitToShow]++
-        if (meanAccuracy >= 0.5) {
-            correctAttemps[digitToShow]++
-        }
-
-        //Update Current data
-        currentData[digitToShow] = (correctAttemps[digitToShow] / userAttemps[digitToShow]) * 100;
-        console.log(currentData)
         SwitchDigits()
     }
 }
@@ -311,7 +242,6 @@ function DetermineWhetherToAddDigit() {
     if ((meanAccuracy > .7) && (getNumberOfAttemps() >= 1)) {
         if (digitsBeingWorkedOn.length < 10) {
             digitsBeingWorkedOn.push(digitsBeingWorkedOn.length)
-            return true
         }
     }
 }
@@ -319,55 +249,30 @@ function DetermineWhetherToAddDigit() {
 function SwitchDigits() {
     UpdateAttempsAndAccuracy()
 
-    if ((digitsBeingWorkedOn.length == 10) && (getNumberOfAttemps() >= 2)) {
-        digitIndex = Math.floor(Math.random() * 10);
-        num1 = Math.floor(Math.random() * 10);
-        addSub = Math.floor(Math.random() * 2)
+    if (digitIndex == digitsBeingWorkedOn.length - 1) {
+        digitIndex = 0
+        DetermineWhetherToAddDigit()
     }
     else {
-        if (digitIndex == digitsBeingWorkedOn.length - 1) {
-            
-            if (DetermineWhetherToAddDigit()) {
-                digitIndex++
-            }
-            else {
-                digitIndex = 0
-            }
-        }
-        else {
-            digitIndex++
-        }
+        digitIndex++
     }
     digitToShow = digitsBeingWorkedOn[digitIndex]
     timeSinceLastDigitChange = new Date();
     testingSampleIndex = 0;
     meanAccuracy = 0;
-
-    if (getNumberOfAccuracys() > .2) {
-        timeToChange = 5 * (1 - getNumberOfAccuracys()/3)
-    }
-    else {
-        timeToChange = 5;
-    }
+    timeToChange = 5;
 }
 
 function TimeToSwitchDigits() {
-    if (pause) {
-        timeSinceLastDigitChange = new Date()
-        return false
+    var currentTime = new Date();
+    var timeSinceChangeInMilliseconds = currentTime - timeSinceLastDigitChange;
+    timeSinceChangeInSeconds = timeSinceChangeInMilliseconds / 1000;
+
+    if (timeSinceChangeInSeconds > timeToChange) {
+        return true
     }
-
     else {
-        var currentTime = new Date();
-        var timeSinceChangeInMilliseconds = currentTime - timeSinceLastDigitChange;
-        timeSinceChangeInSeconds = timeSinceChangeInMilliseconds / 1000;
-
-        if (timeSinceChangeInSeconds > timeToChange) {
-            return true
-        }
-        else {
-            return false
-        }
+        return false
     }
 }
 
@@ -406,110 +311,35 @@ function DrawLowerRightPanel() {
 
 function DrawLowerRightPanelDigit() {
     if (digitToShow == 9) {
-        //image(d9, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
-        fill(0)
-        noStroke()
-        textSize(300)
-        text(9, 3 * window.innerWidth / 4, 3 * window.innerHeight / 4)
+        image(d9, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
     }
     else if (digitToShow == 8) {
-        //image(d8, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
-        fill(0)
-        noStroke()
-        textSize(300)
-        text(8, 3 * window.innerWidth / 4, 3 * window.innerHeight / 4)
+        image(d8, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
     }
     else if (digitToShow == 7) {
-        //image(d7, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
-        fill(0)
-        noStroke()
-        textSize(300)
-        text(7, 3 * window.innerWidth / 4, 3 * window.innerHeight / 4)
+        image(d7, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
     }
     else if (digitToShow == 6) {
-        //image(d6, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
-        fill(0)
-        noStroke()
-        textSize(300)
-        text(6, 3 * window.innerWidth / 4, 3 * window.innerHeight / 4)
+        image(d6, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
     }
     else if (digitToShow == 5) {
-        //image(d5, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
-        fill(0)
-        noStroke()
-        textSize(300)
-        text(5, 3 * window.innerWidth / 4, 3 * window.innerHeight / 4)
+        image(d5, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
     }
     else if (digitToShow == 4) {
-        //image(d4, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
-        fill(0)
-        noStroke()
-        textSize(300)
-        text(4, 3 * window.innerWidth / 4, 3 * window.innerHeight / 4)
+        image(d4, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
     }
     else if (digitToShow == 3) {
-        //image(d3, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
-        fill(0)
-        noStroke()
-        textSize(300)
-        text(3, 3 * window.innerWidth / 4, 3 * window.innerHeight / 4)
+        image(d3, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
     }
     else if (digitToShow == 2) {
-        //image(d2, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
-        fill(0)
-        noStroke()
-        textSize(300)
-        text(2, 3 * window.innerWidth / 4, 3 * window.innerHeight / 4)
+        image(d2, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
     }
     else if (digitToShow == 1) {
-        //image(d1, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
-        fill(0)
-        noStroke()
-        textSize(300)
-        text(1, 3 * window.innerWidth / 4, 3 * window.innerHeight / 4)
+        image(d1, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
     }
     else if (digitToShow == 0) {
-        //image(d0, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
-        fill(0)
-        noStroke()
-        textSize(300)
-        text(0, 3 * window.innerWidth / 4, 3* window.innerHeight / 4)
+        image(d0, window.innerWidth / 2, window.innerHeight / 2, window.innerWidth / 3, window.innerHeight / 3)
     }
-}
-
-function DrawLowerRightPanelMath() {
-
-    
-    //Add
-    if (addSub == 0) {
-        var num2 = digitToShow - num1
-        fill(0)
-        noStroke()
-        var prob = String(num1 + ' + ' + num2 + ' =');
-        textSize(120)
-        text(prob, 3 * window.innerWidth / 4, 3 * window.innerHeight / 4)
-    }
-    //subtract
-    else {
-        var num2 = num1 - digitToShow
-        fill(0)
-        noStroke()
-        var prob = String(num1 + ' - ' + num2 + ' =');
-        textSize(120)
-        text(prob, 3 * window.innerWidth / 4, 3 * window.innerHeight / 4)
-    }
-
-}
-
-function drawPause() {
-    image(pauseIm, 3 * window.innerWidth / 8, 3 * window.innerHeight / 8, window.innerWidth / 8, window.innerHeight / 8)
-}
-
-function drawPredictedDigit() {
-    fill(0)
-    noStroke()
-    textSize(300)
-    text(predictedDigit,  window.innerWidth / 4, window.innerHeight / 4)
 }
 
 function DrawArrowRight() {
@@ -544,17 +374,17 @@ function Train() {
     //console.log(train4)
 
     for (var i = 0; i < train4.shape[3]; i++) {
-        //features = CenterData(train0.pick(null, null, null, i)).reshape(1, 120);
-        //knnClassifier.addExample(features.tolist(), 0);
+        var features = CenterData(train0.pick(null, null, null, i)).reshape(1, 120);
+        nn.addData(features.tolist(), 0);
 
-        //features = CenterData(train1.pick(null, null, null, i)).reshape(1, 120);
-        //knnClassifier.addExample(features.tolist(), 1);
+        features = CenterData(train1.pick(null, null, null, i)).reshape(1, 120);
+        nn.addData(features.tolist(), 1);
 
-        //var features = CenterData(train2.pick(null, null, null, i)).reshape(1, 120);
-        //knnClassifier.addExample(features.tolist(), 2);
+        features = CenterData(train2.pick(null, null, null, i)).reshape(1, 120);
+        nn.addData(features.tolist(), 2);
 
-        features = CenterData(train3.pick(null, null, null, i)).reshape(1, 120);
-        knnClassifier.addExample(features.tolist(), 3);
+        //features = CenterData(train3.pick(null, null, null, i)).reshape(1, 120);
+        //knnClassifier.addExample(features.tolist(), 3);
 
         //features = CenterData(train4.pick(null, null, null, i)).reshape(1, 120);
         //knnClassifier.addExample(features.tolist(), 4);
@@ -562,85 +392,77 @@ function Train() {
         //features = CenterData(train6.pick(null, null, null, i)).reshape(1, 120);
         //knnClassifier.addExample(features.tolist(), 6);
 
-        //features = CenterData(train5.pick(null, null, null, i)).reshape(1, 120);
-        //knnClassifier.addExample(features.tolist(), 5);
+        features = CenterData(train5.pick(null, null, null, i)).reshape(1, 120);
+        nn.addData(features.tolist(), 5);
 
-        //features = CenterData(train7.pick(null, null, null, i)).reshape(1, 120);
-        //knnClassifier.addExample(features.tolist(), 7);
+        features = CenterData(train7.pick(null, null, null, i)).reshape(1, 120);
+        nn.addData(features.tolist(), 7);
 
-        //features = CenterData(train8.pick(null, null, null, i)).reshape(1, 120);
-        //knnClassifier.addExample(features.tolist(), 8);
+        features = CenterData(train8.pick(null, null, null, i)).reshape(1, 120);
+        nn.addData(features.tolist(), 8);
 
-        //features = CenterData(train9.pick(null, null, null, i)).reshape(1, 120);
-        //knnClassifier.addExample(features.tolist(), 9);
+        features = CenterData(train9.pick(null, null, null, i)).reshape(1, 120);
+        nn.addData(features.tolist(), 9);
 
         features = CenterData(train0B.pick(null, null, null, i)).reshape(1, 120);
-        knnClassifier.addExample(features.tolist(), 0);
+        nn.addData(features.tolist(), 0);
 
         features = CenterData(train1B.pick(null, null, null, i)).reshape(1, 120);
-        knnClassifier.addExample(features.tolist(), 1);
+        nn.addData(features.tolist(), 1);
 
         features = CenterData(train2B.pick(null, null, null, i)).reshape(1, 120);
-        knnClassifier.addExample(features.tolist(), 2);
+        nn.addData(features.tolist(), 2);
 
         features = CenterData(train3B.pick(null, null, null, i)).reshape(1, 120);
-        knnClassifier.addExample(features.tolist(), 3);
+        nn.addData(features.tolist(), 3);
 
         features = CenterData(train4B.pick(null, null, null, i)).reshape(1, 120);
-        knnClassifier.addExample(features.tolist(), 4);
+        nn.addData(features.tolist(), 4);
 
         features = CenterData(train6B.pick(null, null, null, i)).reshape(1, 120);
-        knnClassifier.addExample(features.tolist(), 6);
+        nn.addData(features.tolist(), 6);
 
         features = CenterData(train5B.pick(null, null, null, i)).reshape(1, 120);
-        knnClassifier.addExample(features.tolist(), 5);
+        nn.addData(features.tolist(), 5);
 
         features = CenterData(train7B.pick(null, null, null, i)).reshape(1, 120);
-        knnClassifier.addExample(features.tolist(), 7);
+        nn.addData(features.tolist(), 7);
 
         features = CenterData(train8B.pick(null, null, null, i)).reshape(1, 120);
-        knnClassifier.addExample(features.tolist(), 8);
+        nn.addData(features.tolist(), 8);
 
         features = CenterData(train9B.pick(null, null, null, i)).reshape(1, 120);
-        knnClassifier.addExample(features.tolist(), 9);
+        nn.addData(features.tolist(), 9);
 
-        features = CenterData(trainStop.pick(null, null, null, i)).reshape(1, 120);
-        knnClassifier.addExample(features.tolist(), 10);
-
-        features = CenterData(trainStop2.pick(null, null, null, i)).reshape(1, 120);
-        knnClassifier.addExample(features.tolist(), 10);
-
-        
-
-        //features = CenterData(train02.pick(null, null, null, i)).reshape(1, 120);
-        //knnClassifier.addExample(features.tolist(), 0);
+        features = CenterData(train02.pick(null, null, null, i)).reshape(1, 120);
+        nn.addData(features.tolist(), 0);
 
         //features = CenterData(train12.pick(null, null, null, i)).reshape(1, 120);
         //knnClassifier.addExample(features.tolist(), 1);
 
-        //features = CenterData(train22.pick(null, null, null, i)).reshape(1, 120);
-        //knnClassifier.addExample(features.tolist(), 2);
+        features = CenterData(train22.pick(null, null, null, i)).reshape(1, 120);
+        nn.addData(features.tolist(), 2);
 
-        //features = CenterData(train32.pick(null, null, null, i)).reshape(1, 120);
-        //knnClassifier.addExample(features.tolist(), 3);
+        features = CenterData(train32.pick(null, null, null, i)).reshape(1, 120);
+        nn.addData(features.tolist(), 3);
 
-        //features = CenterData(train42.pick(null, null, null, i)).reshape(1, 120);
-        //knnClassifier.addExample(features.tolist(), 4);
+        features = CenterData(train42.pick(null, null, null, i)).reshape(1, 120);
+        nn.addData(features.tolist(), 4);
 
-        //features = CenterData(train62.pick(null, null, null, i)).reshape(1, 120);
-        //knnClassifier.addExample(features.tolist(), 6);
+        features = CenterData(train62.pick(null, null, null, i)).reshape(1, 120);
+        nn.addData(features.tolist(), 6);
 
-        //features = CenterData(train52.pick(null, null, null, i)).reshape(1, 120);
-        //knnClassifier.addExample(features.tolist(), 5);
+        features = CenterData(train52.pick(null, null, null, i)).reshape(1, 120);
+        nn.addData(features.tolist(), 5);
 
-        //features = CenterData(train72.pick(null, null, null, i)).reshape(1, 120);
-        //knnClassifier.addExample(features.tolist(), 7);
+        features = CenterData(train72.pick(null, null, null, i)).reshape(1, 120);
+        nn.addData(features.tolist(), 7);
 
-        //features = CenterData(train82.pick(null, null, null, i)).reshape(1, 120);
-        //knnClassifier.addExample(features.tolist(), 8);
+        features = CenterData(train82.pick(null, null, null, i)).reshape(1, 120);
+        nn.addData(features.tolist(), 8);
 
-        //features = CenterData(train92.pick(null, null, null, i)).reshape(1, 120);
-        //knnClassifier.addExample(features.tolist(), 9);
+        features = CenterData(train92.pick(null, null, null, i)).reshape(1, 120);
+        nn.addData(features.tolist(), 9);
 
         //features = CenterData(train03.pick(null, null, null, i)).reshape(1, 120);
         //knnClassifier.addExample(features.tolist(), 0);
@@ -648,11 +470,11 @@ function Train() {
         //features = CenterData(train13.pick(null, null, null, i)).reshape(1, 120);
         //knnClassifier.addExample(features.tolist(), 1);
 
-        //features = CenterData(train23.pick(null, null, null, i)).reshape(1, 120);
-        //knnClassifier.addExample(features.tolist(), 2);
+        features = CenterData(train23.pick(null, null, null, i)).reshape(1, 120);
+        nn.addData(features.tolist(), 2);
 
-        //features = CenterData(train33.pick(null, null, null, i)).reshape(1, 120);
-        //knnClassifier.addExample(features.tolist(), 3);
+        features = CenterData(train33.pick(null, null, null, i)).reshape(1, 120);
+        nn.addData(features.tolist(), 3);
 
         //features = CenterData(train43.pick(null, null, null, i)).reshape(1, 120);
         //knnClassifier.addExample(features.tolist(), 4);
@@ -673,7 +495,7 @@ function Train() {
         //knnClassifier.addExample(features.tolist(), 9);
         
     }
-
+    nn.normalizeData();
     trainingCompleted = true;
     console.log('Training is Complete')
 }
@@ -681,69 +503,40 @@ function Train() {
 function Test() {
     //console.log(test)
 
-    frameOfData = CenterData(framesOfData1)
+    frameOfData = CenterData(framesOfData)
     
     var currentTestingSample = frameOfData.reshape(1, 120);
-    knnClassifier.classify(currentTestingSample.tolist(), k=3, GotResults);
+    knnClassifier.classify(currentTestingSample.tolist(), k=5, GotResults);
 
     
-}
-
-function Test2() {
-    //console.log(test)
-
-    frameOfData = CenterData(framesOfData2)
-
-    var currentTestingSample = frameOfData.reshape(1, 120);
-    knnClassifier.classify(currentTestingSample.tolist(), k = 3, GotResults);
-
-
 }
 
 function GotResults(err, result) {
     //console.log(parseInt(result.label));
 
-    if (result.label == 10) {
-        pause = true
-    }
+    testingSampleIndex++;
 
-    else {
-        testingSampleIndex++;
+    var correct = (result.label == digitToShow)
+    meanAccuracy = ((testingSampleIndex - 1) * meanAccuracy + correct) / testingSampleIndex
 
-        predictedDigit = result.label;
-        var correct = (result.label == digitToShow)
-        meanAccuracy = ((testingSampleIndex - 1) * meanAccuracy + correct) / testingSampleIndex
-
-        console.log(digitToShow, meanAccuracy, parseInt(result.label));
+    console.log(digitToShow, meanAccuracy, parseInt(result.label));
     //console.log(parseInt(result.label));
-    }
-   
 }
 
 // Hand processing functions
 function HandleFrame(frame) {
 
-    if (frame.hands.length == 1) {
+    if (frame.hands.length >= 1) {
         //    console.log(frame.hands)
-        pause = false
         hand = frame.hands[0];
 
         var interactionBox = frame.interactionBox;
 
-        HandleHand(hand, interactionBox, true)
-    }
-    else if (frame.hands.length > 1) {
-        hand1 = frame.hands[0];
-        hand2 = frame.hands[1];
-
-        var interactionBox = frame.interactionBox;
-
-        HandleHand(hand1, interactionBox, true)
-        HandleHand(hand2, interactionBox, false)
+        HandleHand(hand, interactionBox)
     }
 }
 
-function HandleHand(hand, InteractionBox, draw) {
+function HandleHand(hand, InteractionBox) {
     fingers = hand.fingers;
     //console.log(fingers)
     for (var k = 3; k >= 0; k--) {
@@ -751,14 +544,14 @@ function HandleHand(hand, InteractionBox, draw) {
             var bone = fingers[i].bones[k];
             var boneIndex = fingers[i].bones[k].type
             var fingerIndex = fingers[i].type
-            HandleBone(bone, boneIndex, fingerIndex, InteractionBox, draw)
+            HandleBone(bone, boneIndex, fingerIndex, InteractionBox)
         }
     }
 
 }
 
 
-function HandleBone(bone, boneIndex, fingerIndex, InteractionBox, draw) {
+function HandleBone(bone, boneIndex, fingerIndex, InteractionBox) {
     // var boneTipPose = bone.nextJoint;
     //var boneBasePose = bone.prevJoint;
 
@@ -766,33 +559,20 @@ function HandleBone(bone, boneIndex, fingerIndex, InteractionBox, draw) {
     var normalizedPrevJoint = InteractionBox.normalizePoint(bone.prevJoint, clamping = true)
     var normalizedNextJoint = InteractionBox.normalizePoint(bone.nextJoint, clamping = true)
 
-    if (draw) {
-        framesOfData1.set(fingerIndex, boneIndex, 0, normalizedPrevJoint[0]);
-        framesOfData1.set(fingerIndex, boneIndex, 1, normalizedPrevJoint[1]);
-        framesOfData1.set(fingerIndex, boneIndex, 2, normalizedPrevJoint[2]);
+    framesOfData.set(fingerIndex, boneIndex, 0, normalizedPrevJoint[0]);
+    framesOfData.set(fingerIndex, boneIndex, 1, normalizedPrevJoint[1]);
+    framesOfData.set(fingerIndex, boneIndex, 2, normalizedPrevJoint[2]);
 
-        framesOfData1.set(fingerIndex, boneIndex, 3, normalizedNextJoint[0]);
-        framesOfData1.set(fingerIndex, boneIndex, 4, normalizedNextJoint[1]);
-        framesOfData1.set(fingerIndex, boneIndex, 5, normalizedNextJoint[2]);
-
-
-        var transTip = ScaleCoordinates(normalizedNextJoint);
-        var transBase = ScaleCoordinates(normalizedPrevJoint);
+    framesOfData.set(fingerIndex, boneIndex, 3, normalizedNextJoint[0]);
+    framesOfData.set(fingerIndex, boneIndex, 4, normalizedNextJoint[1]);
+    framesOfData.set(fingerIndex, boneIndex, 5, normalizedNextJoint[2]);
 
 
-        DrawLine(transTip, transBase, boneIndex)
-    }
-    else {
-        framesOfData2.set(fingerIndex, boneIndex, 0, normalizedPrevJoint[0]);
-        framesOfData2.set(fingerIndex, boneIndex, 1, normalizedPrevJoint[1]);
-        framesOfData2.set(fingerIndex, boneIndex, 2, normalizedPrevJoint[2]);
+    var transTip = ScaleCoordinates(normalizedNextJoint);
+    var transBase = ScaleCoordinates(normalizedPrevJoint);
 
-        framesOfData2.set(fingerIndex, boneIndex, 3, normalizedNextJoint[0]);
-        framesOfData2.set(fingerIndex, boneIndex, 4, normalizedNextJoint[1]);
-        framesOfData2.set(fingerIndex, boneIndex, 5, normalizedNextJoint[2]);
 
-        Test2();
-    }
+    DrawLine(transTip, transBase, boneIndex)
 }
 
 function ScaleCoordinates(normalizedPosition) {
@@ -880,42 +660,13 @@ function SignIn() {
         CreateSignInItem(username, list)
         CreateAttempsItems(username, list)
         CreateAccuracyItems(username, list)
-        digitsBeingWorkedOn = [0, 1];
-        digitToShow = 0;
-        for (var i = 0; i < 10; i++) {
-            prevData[i] = 0;
-            currentData[i] = 0
-
-
-        }
     }
     else {
         ID = String(username) + "_signins"
         listItem = document.getElementById(ID);
         listItem.innerHTML = parseInt(listItem.innerHTML) + 1
-        digitsBeingWorkedOn = [];
-        digitToShow = 0;
-        for (var i = 0; i < 10; i++) {
-            ID = String(username) + "_" + String(i) + "_accuracy"
-            listItem = document.getElementById(ID);
-            prevData[i] = parseFloat(listItem.innerHTML) * 100;
-            currentData[i] = 0
-
-            if (parseFloat(listItem.innerHTML) > 0) {
-                digitsBeingWorkedOn.push(i)
-            }
-
-        }
     }
-
-    //listItemScore = document.getElementById("scores")
-    //scores = JSON.parse(listItemScore.innerHTML);
-    //scores[username] = 0;
-    //scores.push({ username: 0 })
-    //listItemScore.innerHTML = scores
-
     console.log(list.innerHTML)
-    timeSinceLastDigitChange = new Date()
     return false;
 }
 
@@ -972,13 +723,7 @@ function UpdateAttempsAndAccuracy() {
 
     ID = String(username) + "_" + String(digitToShow) + "_accuracy"
     listItem = document.getElementById(ID);
-    if (meanAccuracy <= 0.5) {
-        var acc = (parseFloat(listItem.innerHTML) * (attemps - 1)) / attemps
-    }
-    else {
-        var acc = ((parseFloat(listItem.innerHTML) * (attemps - 1))  + 1)/ attemps
-    }
-    
+    var acc = (parseFloat(listItem.innerHTML) + meanAccuracy) / attemps
     listItem.innerHTML = acc
 }
 
@@ -992,42 +737,4 @@ function getNumberOfAccuracys() {
     ID = String(username) + "_" + String(digitToShow) + "_accuracy"
     listItem = document.getElementById(ID);
     return parseFloat(listItem.innerHTML)
-}
-
-function updateScores() {
-
-    var userScore = 0
-    for (var i = 0; i < 10; i++) {
-        ID = String(username) + "_" + String(i) + "_accuracy"
-        listItem = document.getElementById(ID);
-        userScore = userScore + parseFloat(listItem.innerHTML);
-    }
-
-    highScoreList[username] = userScore;
-    //scores.push({ username: userScore })
-    //listItemScore.innerHTML = scores
-
-    var scorelist = document.getElementById('highScores');
-    scorelist.innerHTML = ""
-
-    var tuples = [];
-
-    for (var key in highScoreList) tuples.push([key, highScoreList[key]]);
-
-    tuples.sort(function (a, b) {
-        a = a[1];
-        b = b[1];
-
-        return a < b ? 1 : (a > b ? -1 : 0);
-    });
-
-    for (var i = 0; i < tuples.length; i++) {
-        var key = tuples[i][0];
-        var value = tuples[i][1];
-
-        var item = document.createElement('li');
-        item.id = String(i)
-        item.innerHTML = String(key);
-        scorelist.appendChild(item)
-    }
 }

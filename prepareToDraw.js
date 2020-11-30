@@ -38,4 +38,14 @@ function setup() {
     d2 = loadImage('https://i.imgur.com/NK5dM1F.jpg')
     d1 = loadImage('https://i.imgur.com/NarQ4YP.jpg')
     d0 = loadImage('https://i.imgur.com/K2f8EDe.jpg')
+
+    plus = loadImage('https://i.imgur.com/oSpejIw.png')
+    minus = loadImage('https://i.imgur.com/LLg1mVt.png')
+    equal = loadImage('https://i.imgur.com/wUzgRgF.png')
+
+    pauseIm = loadImage('https://i.imgur.com/KA1oWhE.png')
+
+    textSize(300);
+    textAlign(CENTER, CENTER);
+    //font = loadFont('assets/SourceSansPro-Regular.otf');
 }
